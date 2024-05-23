@@ -97,6 +97,20 @@ export default class Config {
         return Config.platform;
     }
 
+    /**
+     * 表情 base 路径
+     * @return {string}
+     */
+    static emojiBaseUrl() {
+        // 表情的 baseUrl，一定要求以 / 结尾
+        let emojiBaseUrl = 'https://static.wildfirechat.net/twemoji/assets/';
+        // 实例代码
+        // 双网环境时，将表情地址切换到备选网络
+        // if (Config.isUseBackupAddress()) {
+        //     emojiBaseUrl = 'https://192.168.2.169/twemoji/assets/';
+        // }
+        return emojiBaseUrl;
+    }
 
     static config(options) {
         Object.keys(options).forEach(key => {
