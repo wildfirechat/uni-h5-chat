@@ -53,6 +53,8 @@
 import conferenceApi from "../../../api/conferenceApi";
 import ConferenceInfo from "../../../wfc/av/model/conferenceInfo";
 import wfc from "../../../wfc/client/wfc";
+import avenginekitproxy from "../../../wfc/av/engine/avenginekitproxy";
+import conferenceManager from "./conferenceManager";
 
 export default {
     name: "CreateConferenceView",
@@ -82,7 +84,7 @@ export default {
             info.owner = wfc.getUserId();
             info.startTime = Math.ceil(new Date().getTime() / 1000);
             info.endTime = Math.ceil(new Date(this.endTime).getTime() / 1000);
-            info.audience= !this.notAudience;
+            info.audience = !this.notAudience;
             info.allowSwitchMode = this.allowTurnOnMic;
             info.advance = this.advance;
 
@@ -109,8 +111,8 @@ export default {
             this._createConference()
                 .then(info => {
                     console.log('joinConference', info);
-                    let url =  `/pages/voip/conference/ConferencePage?conferenceInfo=${JSON.stringify(info)}&muteAudio=false&muteVideo=false`;
-                    this.$navigateToPage(url);
+                    avenginekitproxy.joinConference(info.conferenceId, false, info.pin, info.owner, info.conferenceTitle, '', false, info.advance, false, false);
+                    conferenceManager.conferenceInfo = info;
                 })
                 .catch(err => {
                     uni.showToast({
