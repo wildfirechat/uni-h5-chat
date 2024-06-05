@@ -35,6 +35,7 @@
 <script>
 import CallState from "../../../wfc/av/engine/callState";
 import VideoType from "../../../wfc/av/engine/videoType";
+import wfc from "../../../wfc/client/wfc";
 
 export default {
     name: "ConferenceParticipantVideoView",
@@ -60,6 +61,7 @@ export default {
         return {
             status: CallState.STATUS_CONNECTING,
             setupVideoViewTimer: 0,
+            selfUserId: wfc.getUserId(),
         }
     },
     created() {
