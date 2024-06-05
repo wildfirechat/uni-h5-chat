@@ -6,6 +6,7 @@ import conferenceManager from "./pages/voip/conference/conferenceManager";
 import ConferenceInviteMessageContent from "./wfc/av/messages/conferenceInviteMessageContent";
 import Message from "./wfc/messages/message";
 import ForwardType from "./pages/conversation/message/forward/ForwardType";
+import ConnectionStatus from "./wfc/client/connectionStatus";
 
 export default {
     data() {
@@ -37,6 +38,10 @@ export default {
         let userId = getItem('userId');
         let token = getItem('token')
         if (token) {
+            if(wfc.getConnectionStatus() === ConnectionStatus.ConnectionStatusConnected){
+                console.log('app Show and connected')
+                return;
+            }
             wfc.connect(userId, token);
             this.go2ConversationList();
         } else {
