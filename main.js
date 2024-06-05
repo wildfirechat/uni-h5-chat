@@ -14,6 +14,10 @@ import zhTWLang from './assets/lang/zh-TW.json'
 import enLang from './assets/lang/en.json'
 import mitt from "mitt";
 
+import VConsole from 'vconsole';
+
+const vConsole = new VConsole();
+
 const app = createSSRApp(App)
 
 const pinia = createPinia()
