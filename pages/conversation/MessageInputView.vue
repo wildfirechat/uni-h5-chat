@@ -295,9 +295,9 @@ export default {
                 case 'shot':
                     this.chooseVideo();
                     break;
-                // case 'file':
-                //     this.chooseFile();
-                //     break;
+                case 'file':
+                    this.chooseFile();
+                    break;
                 case 'voip_a':
                     this.voip(true);
                     break;
@@ -412,28 +412,16 @@ export default {
         },
 
         chooseFile() {
-            wfc.chooseFile('all', async (file) => {
-                    console.log('choose file', file);
-                    let path = file.path;
-                    let filePath;
-                    // #ifdef APP-PLUS
-                    if (path.startsWith('file://')) {
-                        filePath = path.substring('file://'.length);
-                    } else {
-                        filePath = plus.io.convertLocalFileSystemURL(path)
-                    }
-                    // #endif
-                    // #ifdef H5
-                    filePath = await fetch(path).then(res => res.blob())
-                        .then(blob => {
-                            let name = `${new Date().getTime()}.${blob.type.substring(blob.type.lastIndexOf('/') + 1)}`;
-                            return new File([blob], name)
-                        })
-                    // #endif
-                    file.path = filePath;
+            // 合并代码时注意，和 uni-cha 实现逻辑不一样
+            uni.chooseFile({
+                type: 'all',
+                count: 1,
+                success: res => {
+                    console.log('chooseFile result', res)
+                    const file = res.tempFiles[0]
                     store.sendFile(this.conversationInfo.conversation, file);
                 }
-            )
+            })
         },
 
         onKeyboardHeightChange(keyboardHeight, currentKeyboardHeight) {
