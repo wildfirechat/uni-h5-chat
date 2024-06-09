@@ -736,7 +736,7 @@ export default {
         },
 
         lastMessageId() {
-            return this.conversationInfo.lastMessage ? this.conversationInfo.lastMessage.messageId : '';
+            return this.conversationInfo && this.conversationInfo.lastMessage ? this.conversationInfo.lastMessage.messageId : '';
         }
     },
 
