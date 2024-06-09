@@ -73,7 +73,7 @@ export default {
 
 .image-content-container img {
     max-height: 300px;
-    max-width: 300px;
+    max-width: 200px;
     border-radius: 5px;
     overflow: hidden;
     object-fit: scale-down;
