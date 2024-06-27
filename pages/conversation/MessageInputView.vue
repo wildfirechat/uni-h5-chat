@@ -94,9 +94,14 @@ export default {
             isPttEnable: pttClient.isPttClientEnable(),
             extList: [
                 {
-                    title: '相册',
+                    title: '照片',
                     tag: 'image',
                     icon: 'image'
+                },
+                {
+                    title: '视频',
+                    tag: 'shot',
+                    icon: 'camera'
                 },
                 {
                     title: '语音通话',
@@ -107,11 +112,6 @@ export default {
                     title: '视频通话',
                     tag: 'voip_v',
                     icon: 'voip_v'
-                },
-                {
-                    title: '拍摄',
-                    tag: 'shot',
-                    icon: 'camera'
                 },
                 {
                     title: '文件',
@@ -333,24 +333,9 @@ export default {
                 sourceType: ['album', 'camera'],
                 sizeType: ['original', 'compressed'],
                 success: (e) => {
-                    console.log('choose image', e.tempFilePaths);
-                    e.tempFilePaths.forEach(async path => {
-                        let filePath;
-                        // #ifdef APP-PLUS
-                        if (path.startsWith('file://')) {
-                            filePath = path.substring('file://'.length);
-                        } else {
-                            filePath = plus.io.convertLocalFileSystemURL(path)
-                        }
-                        // #endif
-                        // #ifdef H5
-                        filePath = await fetch(path).then(res => res.blob())
-                            .then(blob => {
-                                let name = `${new Date().getTime()}.${blob.type.substring(blob.type.lastIndexOf('/') + 1)}`;
-                                return new File([blob], name)
-                            })
-                        // #endif
-                        store.sendFile(this.conversationInfo.conversation, filePath);
+                    console.log('choose image', e, e.tempFilePaths);
+                    e.tempFiles.forEach(file => {
+                        store.sendFile(this.conversationInfo.conversation, file);
                     })
                 }
             })
@@ -389,24 +374,7 @@ export default {
                 sizeType: ['original', 'compressed'],
                 success: async (e) => {
                     console.log('choose video', e);
-                    let duration = e.duration;
-                    let path = e.tempFilePath;
-                    let filePath;
-                    // #ifdef APP-PLUS
-                    if (path.startsWith('file://')) {
-                        filePath = path.substring('file://'.length);
-                    } else {
-                        filePath = plus.io.convertLocalFileSystemURL(path)
-                    }
-                    // #endif
-                    // #ifdef H5
-                    filePath = await fetch(path).then(res => res.blob())
-                        .then(blob => {
-                            let name = `${new Date().getTime()}.${blob.type.substring(blob.type.lastIndexOf('/') + 1)}`;
-                            return new File([blob], name)
-                        })
-                    // #endif
-                    store.sendFile(this.conversationInfo.conversation, filePath, duration);
+                    store.sendFile(this.conversationInfo.conversation, e.tempFile, e.duration);
                 }
             })
         },
