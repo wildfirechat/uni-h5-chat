@@ -25,13 +25,13 @@ export default {
     data() {
         return {
             keyword: '',
-            users: null,
+            users: [],
         }
     },
     methods: {
         searchUser() {
             if (!this.keyword.trim()) {
-                this.users = null;
+                this.users = [];
                 return;
             }
             console.log('search user', this.keyword);
