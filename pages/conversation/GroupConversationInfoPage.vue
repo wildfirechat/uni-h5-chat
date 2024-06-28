@@ -21,7 +21,7 @@
             </label>
             <label class="switch">
                 保存到通讯录
-                <checkbox-group @change="setFavGroup(conversationInfo.conversation.target, $event.target.value.length === 1)">
+                <checkbox-group @change="setFavGroup(conversationInfo.conversation.target, $event.detail.value.length === 1)">
                     <checkbox
                         value="fav"
                         :checked="conversationInfo.conversation._target._isFav"
