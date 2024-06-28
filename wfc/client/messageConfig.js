@@ -63,10 +63,11 @@ import MultiCallOngoingMessageContent from "../av/messages/multiCallOngoingMessa
 import JoinCallRequestMessageContent from "../av/messages/joinCallRequestMessageContent";
 import RichNotificationMessageContent from "../messages/notification/richNotificationMessageContent";
 import ArticlesMessageContent from "../messages/articlesMessageContent";
+import ConferenceCommandMessageContent from "../av/messages/conferenceCommandMessageContent";
 import ChannelMenuEventMessageContent from "../messages/channelMenuEventMessageContent";
 import EnterChannelChatMessageContent from "../messages/enterChannelChatMessageContent";
 import LeaveChannelChatMessageContent from "../messages/leaveChannelChatMessageContent";
-import ConferenceCommandMessageContent from "../av/messages/conferenceCommandMessageContent";
+import ModifyGroupSettingNotification from "../messages/notification/modifyGroupSettingNotification";
 
 import StreamingTextGeneratingMessageContent from "../messages/streamingTextGeneratingMessageContent";
 import StreamingTextGeneratedMessageContent from "../messages/streamingTextGeneratedMessageContent";
@@ -339,6 +340,12 @@ export default class MessageConfig {
             flag: PersistFlag.Persist,
             type: MessageContentType.AllowGroupMember_Notification,
             contentClazz: AllowGroupMemberNotification,
+        },
+        {
+            name: 'modifyGroupSettingNotificationContent',
+            flag: PersistFlag.No_Persist,
+            type: MessageContentType.ModifyGroupSetting_Notification,
+            contentClazz: ModifyGroupSettingNotification,
         },
         {
             name: 'recall',

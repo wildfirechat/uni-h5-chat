@@ -25,7 +25,11 @@ export class WfcManager {
     constructor() {
         impl.eventEmitter = {
             emit: (ev, ...args) => {
-                if (ev === EventType.ConnectionStatusChanged || ev === EventType.UserOnlineEvent) {
+                if (ev === EventType.ConnectionStatusChanged
+                    || ev === EventType.UserOnlineEvent
+                    || ev === EventType.SendMessage
+                    || ev === EventType.ConnectToServer
+                    || ev === EventType.MessageStatusUpdate) {
                     self.eventEmitter.emit(ev, ...args)
                 } else {
                     if (impl.connectionStatus === ConnectionStatus.ConnectionStatusConnected) {
@@ -211,23 +215,24 @@ export class WfcManager {
      * 获取用户在群里面的displayName
      * @param {string} groupId 群id
      * @param {string} userId 用户id
+     * @param {boolean} ignoreFriendAlias 是否忽略好友备注
      * @returns {string} 用户在群里面的displayName
      */
-    getGroupMemberDisplayName(groupId, userId) {
+    getGroupMemberDisplayName(groupId, userId, ignoreFriendAlias = false) {
         let userInfo = this.getUserInfo(userId, false, groupId);
         if (!userInfo) {
             return '<' + userId + '>';
         }
 
-        return userInfo.groupAlias ? userInfo.groupAlias : (userInfo.friendAlias ? userInfo.friendAlias : (userInfo.displayName ? userInfo.displayName : '<' + userId + '>'))
+        return userInfo.groupAlias ? userInfo.groupAlias : (userInfo.friendAlias && !ignoreFriendAlias ? userInfo.friendAlias : (userInfo.displayName ? userInfo.displayName : '<' + userId + '>'))
     }
 
     getUserDisplayNameEx(userInfo) {
         return userInfo.friendAlias ? userInfo.friendAlias : (userInfo.displayName ? userInfo.displayName : '<' + userInfo.uid + '>');
     }
 
-    getGroupMemberDisplayNameEx(userInfo) {
-        return userInfo.groupAlias ? userInfo.groupAlias : (userInfo.friendAlias ? userInfo.friendAlias : (userInfo.displayName ? userInfo.displayName : '<' + userInfo.uid + '>'))
+    getGroupMemberDisplayNameEx(userInfo, ignoreFriendAlias = false) {
+        return userInfo.groupAlias ? userInfo.groupAlias : (userInfo.friendAlias && !ignoreFriendAlias ? userInfo.friendAlias : (userInfo.displayName ? userInfo.displayName : '<' + userInfo.uid + '>'))
     }
 
     /**
@@ -300,8 +305,12 @@ export class WfcManager {
      * @param {function (number)}failCB
      * @returns {Promise<void>}
      */
-    async searchUser(keyword, searchType, page, successCB, failCB) {
-        impl.searchUser(keyword, searchType, page, (keyword, userInfos )=> {
+    searchUser(keyword, searchType, page, successCB, failCB) {
+        this.searchUserEx('', keyword, searchType, page, successCB, failCB);
+    }
+
+    searchUserEx(domainId, keyword, searchType, page, successCB, failCB) {
+        impl.searchUserEx(domainId, keyword, searchType, page, (keyword, userInfos) => {
             userInfos.forEach((u) => {
                 if (!u.portrait || u.portrait.startsWith(Config.APP_SERVER)) {
                     u.portrait = this.defaultUserPortrait(u)
@@ -317,13 +326,7 @@ export class WfcManager {
      * @returns {[UserInfo]}
      */
     searchFriends(keyword) {
-        let userInfos = impl.searchFriends(keyword);
-        userInfos.forEach((u) => {
-            if (!u.portrait || u.portrait.startsWith(Config.APP_SERVER)) {
-                u.portrait = this.defaultUserPortrait(u)
-            }
-        });
-        return userInfos;
+        return impl.searchFriends(keyword);
     }
 
     /**
@@ -787,7 +790,7 @@ export class WfcManager {
      * @return 群备注
      */
     getGroupRemark(groupId) {
-        return impl.setGroupRemark(groupId);
+        return impl.getGroupRemark(groupId);
     }
 
     /**
@@ -1581,7 +1584,7 @@ export class WfcManager {
     /**
      * 根据消息 uid，获取远程消息
      * @param {Long} messageUid 消息uid
-     * @param {function ([Message])} successCB
+     * @param {function (Message)} successCB
      * @param failCB
      */
     loadRemoteMessage(messageUid, successCB, failCB){
@@ -2102,22 +2105,46 @@ export class WfcManager {
         impl.releaseLock(lockId, successCB, failCB);
     }
 
-    _getStore() {
-        return impl._getStore();
+    /**
+     * 是否开启服务互联互通功能
+     * @return {boolean}
+     */
+    isEnableMesh() {
+        return impl.isEnableMesh();
     }
 
+    /**
+     * 获取域信息
+     * @param {string} domainId
+     * @return {DomainInfo}
+     */
+    getDomainInfo(domainId) {
+        return impl.getdomainInfo(domainId);
+    }
 
-    _getStore() {
-        return impl._getStore();
+    /**
+     * 从服务端拉取 IM 域列表
+     * @param {function (DomainInfo[])} successCB
+     * @param {function (number)} failCB
+     */
+    loadRemoteDomains(successCB, failCB) {
+        impl.loadRemoteDomains(successCB, failCB);
     }
 
 
     /**
-     * 内部使用，electron主窗口之外的，其他窗口，attach到主窗口初始化的proto上，可以调用get相关方法，但没有通知
-     * @param protoObj
+     * 从服务端重新拉取 IM 域信息
+     * @param {string} domainId 域 id
+     * @param {string|number|Long} updateDt 本地的 domainInfo 的更新时间
+     * @param {function (DomainInfo)} successCB
+     * @param {function (number)} failCB
      */
-    attach(protoObj) {
-        impl.attach(protoObj);
+    reloadDomainInfoFromRemote(domainId, updateDt, successCB, failCB) {
+        impl.reloadDomainInfoFromRemote(domainId, updateDt, successCB, failCB);
+    }
+
+    _getStore() {
+        return impl._getStore();
     }
 
     /**
@@ -2200,6 +2227,10 @@ export class WfcManager {
 
         return `${Config.APP_SERVER}/avatar/group?request=${encodeURIComponent(req)}`
         //return `http://localhost:8888/avatar/group?request=${encodeURIComponent(req)}`
+    }
+
+    connectedToMainNetwork() {
+        return impl.connectedToMainNetwork();
     }
 }
 

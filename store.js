@@ -2,7 +2,7 @@ import ConnectionStatus from "./wfc/client/connectionStatus";
 import wfc from "./wfc/client/wfc";
 import EventType from "./wfc/client/wfcEvent";
 import ConversationType from "./wfc/model/conversationType";
-import {eq, gt, numberValue, stringValue} from "./wfc/util/longUtil";
+import {eq, gt, numberValue, longValue, stringValue} from "./wfc/util/longUtil";
 import helper from "./pages/util/helper";
 import pinyin from 'pinyin/esm/pinyin'
 import GroupType from "./wfc/model/groupType";
@@ -37,6 +37,7 @@ import CallStartMessageContent from "./wfc/av/messages/callStartMessageContent";
 import {storeToRefs} from "pinia";
 import {pstore} from "./pstore";
 import {imageThumbnail, videoDuration, videoThumbnail} from "./pages/util/imageUtil";
+import avenginekitproxy from "./wfc/av/engine/avenginekitproxy";
 
 /**
  * 一些说明
@@ -76,23 +77,33 @@ let store = {
         store.state.pick = pickState;
         store.state.misc = miscState;
 
+        miscState.connectionStatus = wfc.getConnectionStatus();
         wfc.eventEmitter.on(EventType.ConnectionStatusChanged, (status) => {
+            console.log('store ConnectionStatusChanged', status)
+            contactState.isEnableMesh = wfc.isEnableMesh();
             miscState.connectionStatus = status;
-            console.log('connection status changed', status);
-            if (status === ConnectionStatus.ConnectionStatusConnected) {
-                this._loadDefaultData();
-            } else if (status === ConnectionStatus.ConnectionStatusLogout
-                || status === ConnectionStatus.ConnectionStatusRejected
-                || status === ConnectionStatus.ConnectionStatusSecretKeyMismatch
-                || status === ConnectionStatus.ConnectionStatusKickedOff
-                || status === ConnectionStatus.ConnectionStatusTokenIncorrect) {
+            miscState.isCommercialServer = wfc.isCommercialServer();
+            miscState.isDisableSyncDraft = wfc.isDisableSyncDraft();
+            try {
+                if (status === ConnectionStatus.ConnectionStatusConnected) {
+                    this._loadDefaultData();
+                    this.updateTray();
+                } else if (status === ConnectionStatus.ConnectionStatusLogout
+                    || status === ConnectionStatus.ConnectionStatusRejected
+                    || status === ConnectionStatus.ConnectionStatusSecretKeyMismatch
+                    || status === ConnectionStatus.ConnectionStatusKickedOff
+                    || status === ConnectionStatus.ConnectionStatusTokenIncorrect) {
 
-                // 清除 token 等
-                clear();
-                if (status === ConnectionStatus.ConnectionStatusKickedOff) {
-                    wfc.disconnect();
+                    // 清除 token 等
+                    clear();
+                    if (status === ConnectionStatus.ConnectionStatusKickedOff) {
+                        wfc.disconnect();
+                    }
+                    _reset();
+                    this.updateTray();
                 }
-                _reset();
+            } catch (e) {
+                // do nothing
             }
         });
 
@@ -100,7 +111,7 @@ let store = {
             console.log('store UserInfosUpdate', userInfos, miscState.connectionStatus)
             this._reloadSingleConversationIfExist(userInfos);
             // TODO optimize
-            this._loadCurrentConversationMessages();
+            this._patchCurrentConversationMessages();
             this._loadFriendList();
             this._loadFriendRequest();
             this._loadSelfUserInfo();
@@ -113,7 +124,11 @@ let store = {
             this._loadFavContactList();
             this._loadFavGroupList();
             this._loadChannelList();
-            this._loadCurrentConversationMessages();
+            this.updateTray();
+            // 清除远程消息时，WEB SDK会同时触发ConversationInfoUpdate 和 setting更新，但PC SDK不会，只会触发setting更新
+            // if (isElectron()) {
+            //     this._loadCurrentConversationMessages();
+            // }
         });
 
         wfc.eventEmitter.on(EventType.FriendRequestUpdate, (newFrs) => {
@@ -121,11 +136,12 @@ let store = {
         });
 
         wfc.eventEmitter.on(EventType.FriendListUpdate, (updatedFriendIds) => {
+            console.log('FriendListUpdate', updatedFriendIds);
             this._loadFriendList();
             this._loadFriendRequest();
             this._loadFavContactList();
             this._loadDefaultConversationList();
-            this._loadCurrentConversationMessages();
+            this._patchCurrentConversationMessages();
         });
 
         wfc.eventEmitter.on(EventType.GroupInfosUpdate, (groupInfos) => {
@@ -152,15 +168,20 @@ let store = {
 
         wfc.eventEmitter.on(EventType.ConversationInfoUpdate, (conversationInfo) => {
             this._reloadConversation(conversationInfo.conversation)
-            if (conversationState.currentConversationInfo && conversationState.currentConversationInfo.conversation.equal(conversationInfo.conversation)) {
-                this._loadCurrentConversationMessages();
-            }
+            // if (conversationState.currentConversationInfo && conversationState.currentConversationInfo.conversation.equal(conversationInfo.conversation)) {
+            //     this._loadCurrentConversationMessages();
+            // }
+            // 标记已读未读
+            this.updateTray();
         });
 
 
         wfc.eventEmitter.on(EventType.ReceiveMessage, (msg, hasMore) => {
-            //console.log('receiveMessage', msg, hasMore);
+
             if (miscState.connectionStatus === ConnectionStatus.ConnectionStatusReceiveing) {
+                return;
+            }
+            if (miscState.isMainWindow && !this.isConversationInCurrentWindow(msg.conversation)) {
                 return;
             }
             if (!hasMore) {
@@ -212,42 +233,52 @@ let store = {
                             && (msg.messageContent.type === MessageContentType.Streaming_Text_Generating || msg.messageContent.type === MessageContentType.Streaming_Text_Generated)
                             && m.messageContent.streamId === msg.messageContent.streamId
                         )
-                })
+                });
                 if (msgIndex > -1) {
                     // FYI: https://v2.vuejs.org/v2/guide/reactivity#Change-Detection-Caveats
                     conversationState.currentConversationMessageList.splice(msgIndex, 1, msg);
-                    console.log('msg duplicate', msg.messageId, msg.messageUid)
+                    console.log('msg duplicate')
                     return;
                 }
                 conversationState.currentConversationMessageList.push(msg);
             }
 
-            // 没有使用 uikit 默认的通知处理
-            if (msg.conversation.type !== 2 && miscState.isAppHidden && (miscState.enableNotification || msg.status === MessageStatus.AllMentioned || msg.status === MessageStatus.Mentioned)) {
-                this.notify(msg);
-            }
+            if (miscState.isMainWindow && this.isConversationInCurrentWindow(msg.conversation)) {
+                if (msg.conversation.type !== 2 && miscState.isPageHidden && (miscState.enableNotification || msg.status === MessageStatus.AllMentioned || msg.status === MessageStatus.Mentioned)) {
+                    this.notify(msg);
+                }
 
+                this.updateTray();
+            }
+            if (msg.messageContent instanceof ModifyGroupSettingNotification) {
+                wfc.getGroupInfo(msg.messageContent.groupId, true);
+            }
         });
 
         wfc.eventEmitter.on(EventType.RecallMessage, (operator, messageUid) => {
             this._reloadConversationByMessageUidIfExist(messageUid);
             if (conversationState.currentConversationInfo) {
                 let msg = wfc.getMessageByUid(messageUid);
-                if (msg && msg.conversation.equal(conversationState.currentConversationInfo.conversation)) {
-                    if (conversationState.currentConversationMessageList) {
-                        let lastTimestamp = 0;
-                        conversationState.currentConversationMessageList = conversationState.currentConversationMessageList.map(msg => {
-                            if (eq(msg.messageUid, messageUid)) {
-                                let newMsg = wfc.getMessageByUid(messageUid);
-                                this._patchMessage(newMsg, lastTimestamp);
-                                return newMsg;
-                            }
-                            lastTimestamp = msg.timestamp;
-                            return msg;
-                        });
+                if (msg) {
+                    if (msg.conversation.equal(conversationState.currentConversationInfo.conversation)) {
+                        if (conversationState.currentConversationMessageList) {
+                            let lastTimestamp = 0;
+                            conversationState.currentConversationMessageList = conversationState.currentConversationMessageList.map(msg => {
+                                if (eq(msg.messageUid, messageUid)) {
+                                    let newMsg = wfc.getMessageByUid(messageUid);
+                                    this._patchMessage(newMsg, lastTimestamp);
+                                    return newMsg;
+                                }
+                                lastTimestamp = msg.timestamp;
+                                return msg;
+                            });
+                        }
                     }
+                } else {
+                    conversationState.currentConversationMessageList = conversationState.currentConversationMessageList.filter(m => !eq(m.messageUid, messageUid));
                 }
             }
+            this.updateTray();
         });
 
         wfc.eventEmitter.on(EventType.UserOnlineEvent, (userOnlineStatus) => {
@@ -266,6 +297,7 @@ let store = {
                     conversationState.currentConversationMessageList = conversationState.currentConversationMessageList.filter(msg => !eq(msg.messageUid, messageUid))
                 }
             }
+            this.updateTray();
         });
         // 本地删除
         wfc.eventEmitter.on(EventType.DeleteMessage, (messageId) => {
@@ -277,6 +309,22 @@ let store = {
             }
         });
 
+        wfc.eventEmitter.on(EventType.SecretChatMessageBurned, (target, playedMessageId) => {
+            // todo 倒计时等
+        });
+
+        wfc.eventEmitter.on(EventType.SecretChatMessageBurned, (messageIds) => {
+            this._loadDefaultConversationList();
+            if (conversationState.currentConversationInfo) {
+                if (conversationState.currentConversationMessageList) {
+                    conversationState.currentConversationMessageList = conversationState.currentConversationMessageList.filter(msg => messageIds.indexOf(msg.messageId) < 0)
+                }
+            }
+        });
+
+        wfc.eventEmitter.on(EventType.SecretChatStateChange, (targetId) => {
+            this._loadDefaultConversationList();
+        });
 
         wfc.eventEmitter.on(EventType.SendMessage, (message) => {
             // 删除频道，或者从频道会话切到其他会话时，会发送一条离开频道的消息
@@ -304,6 +352,10 @@ let store = {
             this._patchMessage(message, lastTimestamp)
 
             conversationState.currentConversationMessageList.push(message);
+            const defaultRenderMessageCount = 50;
+            if (conversationState.currentConversationMessageList.length > defaultRenderMessageCount) {
+                conversationState.currentConversationMessageList = conversationState.currentConversationMessageList.slice(conversationState.currentConversationMessageList.length - defaultRenderMessageCount);
+            }
         });
 
         wfc.eventEmitter.on(EventType.MessageStatusUpdate, (message) => {
@@ -321,7 +373,8 @@ let store = {
                 return;
             }
             let msg = conversationState.currentConversationMessageList[index];
-            Object.assign(msg, message)
+            msg = Object.assign(msg, message)
+            conversationState.currentConversationMessageList.splice(index, 1, msg)
 
             if (conversationState.currentConversationInfo.lastMessage && conversationState.currentConversationInfo.lastMessage.messageId === message.messageId) {
                 Object.assign(conversationState.currentConversationInfo.lastMessage, message);
@@ -355,9 +408,9 @@ let store = {
         this._loadDefaultConversationList();
         this._loadUserLocalSettings();
         conversationState.isMessageReceiptEnable = wfc.isReceiptEnabled() && wfc.isUserReceiptEnabled();
-        if (conversationState.currentConversationInfo) {
-            this._loadCurrentConversationMessages();
-        }
+        // if (conversationState.currentConversationInfo) {
+        //     this._loadCurrentConversationMessages();
+        // }
     },
 
     // conversation actions
@@ -368,23 +421,25 @@ let store = {
     },
 
     _loadDefaultConversationList() {
-        this._loadConversationList([0, 1, 3], [0])
+        console.log('store _loadDefaultConversationList');
+        let conversationTypes = false && isElectron() ? [0, 1, 3, 5] : [0, 1, 3];
+        this._loadConversationList(conversationTypes, [0])
     },
 
     _loadConversationList(conversationType = [0, 1, 3], lines = [0]) {
         let conversationList = wfc.getConversationList(conversationType, lines);
         let toLoadUserIdSet = new Set();
         let toLoadGroupIds = [];
-        console.log('_loadConversationList size', conversationList.length);
+
         conversationList.forEach(info => {
             if (info.conversation.type === ConversationType.Single) {
                 toLoadUserIdSet.add(info.conversation.target)
-                if (info.lastMessage) {
+                if (info.lastMessage && info.lastMessage.from) {
                     toLoadUserIdSet.add(info.lastMessage.from);
                 }
             } else if (info.conversation.type === ConversationType.Group) {
                 toLoadGroupIds.push(info.conversation.target)
-                if (info.lastMessage) {
+                if (info.lastMessage && info.lastMessage.from) {
                     toLoadUserIdSet.add(info.lastMessage.from);
                 }
             }
@@ -398,11 +453,12 @@ let store = {
             groupInfoMap.set(gid, new NullGroupInfo(gid))
         })
 
-        console.log('to load userIds', toLoadUserIdSet.size);
-        wfc.getUserInfos([...toLoadUserIdSet], '')
+        console.log('to load userIds', [...toLoadUserIdSet]);
+        wfc.getUserInfos([...toLoadUserIdSet])
             .forEach(u => {
                 userInfoMap.set(u.uid, u);
             });
+        console.log('to load groupIds', toLoadGroupIds);
         wfc.getGroupInfos(toLoadGroupIds)
             .forEach(g => {
                 groupInfoMap.set(g.target, g);
@@ -423,7 +479,7 @@ let store = {
     _reloadConversation(conversation, insertIfNoExist = true) {
         let conversationInfo = wfc.getConversationInfo(conversation);
         if (conversationInfo) {
-            conversationInfo = this._patchConversationInfo(conversationInfo);
+            conversationInfo = this._patchConversationInfo(conversationInfo, true);
         }
         let index = conversationState.conversationInfoList.findIndex(info => info.conversation.equal(conversation));
         if (index >= 0) {
@@ -438,6 +494,10 @@ let store = {
 
         if (conversationState.currentConversationInfo && conversationState.currentConversationInfo.conversation.equal(conversation)) {
             conversationState.currentConversationInfo = conversationInfo;
+            // 清除聊天记录
+            if (!conversationInfo.lastMessage) {
+                conversationState.currentConversationMessageList = [];
+            }
         }
 
         // sort
@@ -456,13 +516,34 @@ let store = {
     },
 
     _reloadSingleConversationIfExist(userInfos) {
+        let cl = conversationState.conversationInfoList
+        if (!cl || cl.length === 0) {
+            return;
+        }
         if (userInfos.length > 10) {
             this._loadDefaultConversationList();
         } else {
-            userInfos.forEach(ui => {
-                let conv = new Conversation(ConversationType.Single, ui.uid, 0);
+            let toReloadConversations = [];
+            if (cl) {
+                let uids = userInfos.map(info => info.uid);
+                cl.forEach(ci => {
+                    let conv = ci.conversation;
+                    if (conv.type === ConversationType.Single) {
+                        if (uids.indexOf(conv.target) >= 0) {
+                            toReloadConversations.push(conv);
+                        }
+                    } else {
+                        let lastMsg = ci.lastMessage;
+                        if (lastMsg && uids.indexOf(lastMsg.from) >= 0
+                            && toReloadConversations.findIndex(c => c.type === conv.type && c.target === conv.target && c.line === conv.line) === -1) {
+                            toReloadConversations.push(conv)
+                        }
+                    }
+                })
+            }
+            for (let conv of toReloadConversations) {
                 this._reloadConversation(conv, false);
-            })
+            }
         }
     },
 
@@ -549,6 +630,7 @@ let store = {
             conversationState.currentConversationRead = null;
             conversationState.enableMessageMultiSelection = false;
 
+            conversationState.showChannelMenu = false;
             return;
         }
 
@@ -580,7 +662,9 @@ let store = {
         conversationState.currentConversationMessageList.length = 0;
         conversationState.currentConversationOldestMessageId = 0;
         conversationState.currentConversationOldestMessageUid = 0;
-        this._loadCurrentConversationMessages();
+        // 会话页面会触发调用 loadConversationHistoryMessages，这儿不用提前加载消息
+        // this._loadCurrentConversationMessages();
+        this._patchCurrentConversationOnlineStatus();
 
         conversationState.currentConversationRead = wfc.getConversationRead(conversationInfo.conversation);
 
@@ -613,6 +697,13 @@ let store = {
             console.log('quit group error', err)
         })
     },
+    dismissGroup(groupId) {
+        wfc.dismissGroup(groupId, [0], null, () => {
+            this.setCurrentConversationInfo(null)
+        }, (err) => {
+            console.log('dismiss group error', err)
+        })
+    },
     subscribeChannel(channelId, subscribe) {
         wfc.listenChannel(channelId, subscribe, () => {
             //this.setCurrentConversationInfo(null)
@@ -642,19 +733,27 @@ let store = {
         }
     },
 
-    deleteSelectedMessages() {
+    deleteSelectedMessages(deleteRemoteMessages = false) {
         conversationState.enableMessageMultiSelection = false;
         if (pickState.messages.length < 1) {
             return;
         }
         pickState.messages.sort((m1, m2) => m1.messageId - m2.messageId);
         pickState.messages.forEach(m => {
-            wfc.deleteMessage(m.messageId);
+            if (deleteRemoteMessages) {
+                wfc.deleteRemoteMessageByUid(m.messageUid);
+            } else {
+                wfc.deleteMessage(m.messageId);
+            }
         });
         pickState.messages.length = 0;
     },
 
     forwardMessage(forwardType, targetConversations, messages, extraMessageText) {
+        // web 端，避免撤回消息等操作，影响组合消息
+        // if (!isElectron()) {
+        //     messages = messages.map(m => Object.assign({}, m));
+        // }
         targetConversations.forEach(conversation => {
             // let msg =new Message(conversation, message.messageContent)
             // wfc.sendMessage(msg)
@@ -756,16 +855,28 @@ let store = {
                 if (msg.messageId === message.messageId) {
                     conversationState.previewMediaIndex = i;
                 }
+                let mediaUrl = msg.messageContent.remotePath;
+                if (!mediaUrl) {
+                    if (msg.messageContent.file) {
+                        mediaUrl = URL.createObjectURL(msg.messageContent.file)
+                    }
+                }
                 conversationState.previewMediaItems.push({
-                    src: msg.messageContent.remotePath,
+                    src: mediaUrl,
                     thumb: 'data:image/png;base64,' + msg.messageContent.thumbnail,
                     autoplay: true,
                 });
             }
         } else {
             conversationState.previewMediaIndex = 0;
+            let mediaUrl = message.messageContent.remotePath;
+            if (!mediaUrl) {
+                if (message.messageContent.file) {
+                    mediaUrl = URL.createObjectURL(message.messageContent.file)
+                }
+            }
             conversationState.previewMediaItems.push({
-                src: message.messageContent.remotePath,
+                src: mediaUrl,
                 thumb: 'data:image/png;base64,' + message.messageContent.thumbnail,
                 autoplay: true,
             });
@@ -799,6 +910,7 @@ let store = {
      * @return {Promise<boolean>}
      */
     async sendFile(conversation, file) {
+        console.log('send file', file)
         if (file.size && file.size > 100 * 1024 * 1024) {
             if (!wfc.isSupportBigFilesUpload() || conversation.type === ConversationType.SecretChat) {
                 console.log('file too big, and not support upload big file')
@@ -844,7 +956,7 @@ let store = {
                 }
                 messageContent = new ImageMessageContent(fileOrLocalPath, remotePath, it.split(',')[1]);
                 messageContent.imageWidth = iw;
-                messageContent.imageHeight = ih
+                messageContent.imageHeight = ih;
                 break;
             case MessageContentMediaType.Video:
                 let vtr = await videoThumbnail(file);
@@ -863,11 +975,10 @@ let store = {
                     // fallback to file message
                 }
             case MessageContentMediaType.File:
+            // do nothing
+            default:
                 messageContent = new FileMessageContent(fileOrLocalPath, remotePath);
                 break;
-            default:
-                console.log('not support file')
-                return false;
         }
         msg.messageContent = messageContent;
         wfc.sendMessage(msg,
@@ -901,6 +1012,7 @@ let store = {
 
     quoteMessage(message) {
         conversationState.quotedMessage = message;
+        conversationState.currentConversationInfo._quotedMessage = message;
     },
 
     getConversationInfo(conversation) {
@@ -920,7 +1032,7 @@ let store = {
         wfc.getMessagesV2(conversation, fromIndex, before, 20, withUser, msgs => {
             msgs = msgs.map(m => this._patchMessage(m, 0));
             //callback && callback(msgs);
-            callback && callback(msgs);
+            setTimeout(() => callback && callback(msgs), 200)
         }, err => {
             console.error('getMessageV2 error', err)
             callback && callback([]);
@@ -930,7 +1042,7 @@ let store = {
     getMessageInTypes(conversation, contentTypes, timestamp, before = true, withUser = '', callback) {
         wfc.getMessagesByTimestampV2(conversation, contentTypes, timestamp, before, 20, withUser, msgs => {
             msgs = msgs.map(m => this._patchMessage(m, 0));
-            setTimeout(() => callback && callback(msgs), 200)
+            callback && callback(msgs);
         }, err => {
             callback && callback([]);
         });
@@ -941,6 +1053,7 @@ let store = {
         if (!conversationState.currentConversationInfo) {
             return;
         }
+        // TODO 可以在这儿加载所有未读消息，以实现滚动到一条未读消息的地方
         let conversation = conversationState.currentConversationInfo.conversation;
         wfc.getMessagesV2(conversation, 0, true, 20, '', msgs => {
             conversationState.currentConversationMessageList = msgs;
@@ -954,7 +1067,7 @@ let store = {
                     break;
                 }
             }
-            console.log('_loadCurrentConversationMessages success', conversation, msgs)
+
         }, err => {
             console.error('_loadCurrentConversationMessages error', err);
         });
@@ -989,7 +1102,7 @@ let store = {
         return loadNewMsg;
     },
 
-    loadConversationHistoryMessages(loadedCB, completeCB) {
+    loadConversationHistoryMessages(loadedCB, completeCB, enableLoadRemoteHistoryMessage = true) {
         if (!conversationState.currentConversationInfo) {
             return;
         }
@@ -1031,15 +1144,23 @@ let store = {
                 if (gt(lmsgs[0].messageUid, 0)) {
                     conversationState.currentConversationOldestMessageUid = lmsgs[0].messageUid;
                 }
-                let loadNewMsg = this._onloadConversationMessages(conversation, lmsgs)
-                if (!loadNewMsg) {
-                    loadRemoteHistoryMessageFunc();
+                this._onloadConversationMessages(conversation, lmsgs)
+                if (lmsgs.length === 0) {
+                    if (enableLoadRemoteHistoryMessage) {
+                        loadRemoteHistoryMessageFunc();
+                    } else {
+                        completeCB();
+                    }
                 } else {
                     // loadedCB();
                     setTimeout(() => loadedCB(), 200)
                 }
             } else {
-                loadRemoteHistoryMessageFunc();
+                if (enableLoadRemoteHistoryMessage) {
+                    loadRemoteHistoryMessageFunc();
+                } else {
+                    completeCB();
+                }
             }
         }, err => {
             completeCB();
@@ -1072,6 +1193,7 @@ let store = {
             this.setCurrentConversationInfo(null);
         }
         conversationState.conversationInfoList = conversationState.conversationInfoList.filter(info => !info.conversation.equal(conversation));
+        this.updateTray();
     },
 
     getMessageById(messageId) {
@@ -1097,13 +1219,21 @@ let store = {
         if (m.conversation.type === ConversationType.Single) {
             m._from = userInfoMap ? userInfoMap.get(m.from) : wfc.getUserInfo(m.from, false, '');
         }
-        if (!m._from) {
-            m._from = wfc.getUserInfo(m.from, false, m.conversation.type === ConversationType.Group ? m.conversation.target : '');
+        if (!m._from || !m._from.updateDt) {
+            let u = wfc.getUserInfo(m.from, false, m.conversation.type === ConversationType.Group ? m.conversation.target : '');
+            // clone for modify
+            // TODO sdk 返回的时候，直接返回 clone copy，而不是直接返回底层的数据，防止上层修改，影响到底层数据模型
+            m._from = Object.assign({}, u);
         }
         if (m.conversation.type === ConversationType.Group) {
             m._from._displayName = wfc.getGroupMemberDisplayNameEx(m._from);
         } else {
             m._from._displayName = wfc.getUserDisplayNameEx(m._from);
+        }
+        if (m.conversation.type === ConversationType.SecretChat) {
+            if (m.messageContent instanceof MediaMessageContent && m.messageContent.remotePath && m.messageContent.remotePath.startsWith("http")) {
+                m.messageContent.remotePath = `http://localhost:${Config.SECRET_CHAT_MEDIA_DECODE_SERVER_PORT}?target=${m.conversation.target}&url=${m.messageContent.remotePath}`
+            }
         }
         if (numberValue(lastTimestamp) > 0 && numberValue(m.timestamp) - numberValue(lastTimestamp) > 5 * 60 * 1000) {
             m._showTime = true;
@@ -1147,6 +1277,16 @@ let store = {
             info.conversation._target = wfc.getChannelInfo(info.conversation.target, false);
             info.conversation._target._displayName = info.conversation._target.name;
 
+        } else if (info.conversation.type === ConversationType.SecretChat) {
+            let secretChatInfo = wfc.getSecretChatInfo(info.conversation.target);
+            if (secretChatInfo) {
+                let userId = secretChatInfo.userId;
+                let userInfo = wfc.getUserInfo(userId, false);
+                info.conversation._target = userInfo;
+                info.conversation._target._displayName = wfc.getUserDisplayNameEx(userInfo);
+            } else {
+                info.conversation._target = {};
+            }
         } else if (info.conversation.type === ConversationType.ChatRoom) {
             wfc.getChatroomInfo(info.conversation.target, 0, (chatRoomInfo) => {
                 info.conversation._target = chatRoomInfo;
@@ -1161,44 +1301,44 @@ let store = {
             info._timeStr = '';
         }
 
-        // 显示的时候，再 patch
-        if (info.lastMessage && info.lastMessage.conversation !== undefined && patchLastMessage) {
-            //this._patchMessage(info.lastMessage, 0, userInfoMap)
-            if (!info.lastMessage._from) {
-                info.lastMessage._from = undefined;
-            }
+        if (patchLastMessage && info.lastMessage && info.lastMessage.conversation !== undefined && (!info.lastMessage._from || !info.lastMessage._from.updateDt)) {
+            this._patchMessage(info.lastMessage, 0, userInfoMap)
         }
 
         if (info.unreadCount) {
             info._unread = info.unreadCount.unread + info.unreadCount.unreadMention + info.unreadCount.unreadMentionAll;
         }
-        // if (info.conversation.equal(avenginekitproxy.conversation)) {
-        //     info._isVoipOngoing = true;
-        // } else {
-        //     info._isVoipOngoing = false;
-        // }
+        if (info.conversation.equal(avenginekitproxy.conversation)) {
+            info._isVoipOngoing = true;
+        } else {
+            info._isVoipOngoing = false;
+        }
 
         return info;
     },
 
-    addDownloadingMessage(messageId) {
+    addDownloadingMessage(messageUid) {
         conversationState.downloadingMessages.push({
-            messageId: messageId,
+            messageUid: messageUid,
             progress: 0,
             total: Number.MAX_SAFE_INTEGER,
         });
         console.log('add downloading')
     },
 
-    isDownloadingMessage(messageId) {
-        return conversationState.downloadingMessages.findIndex(dm => dm.messageId === messageId) >= 0;
+    isDownloadingMessage(messageUid) {
+        // web端尚未测试，先屏蔽
+        // if (!isElectron()) {
+        //     return false;
+        // }
+        return conversationState.downloadingMessages.findIndex(dm => eq(dm.messageUid, messageUid)) >= 0;
     },
 
     isSendingMessage(messageId) {
         return conversationState.sendingMessages.has(messageId);
     },
-    getDownloadingMessageStatus(messageId) {
-        return conversationState.downloadingMessages.find(dm => dm.messageId === messageId);
+    getDownloadingMessageStatus(messageUid) {
+        return conversationState.downloadingMessages.find(dm => eq(dm.messageUid, messageUid));
     },
 
     getSendingStatus(messageId) {
@@ -1251,6 +1391,10 @@ let store = {
     _patchCurrentConversationOnlineStatus() {
         let convInfo = conversationState.currentConversationInfo;
         if (convInfo && convInfo.conversation.type === ConversationType.Single) {
+            // 在 将 object 和 ui 绑定之前， 向 object 中新增的属性是 reactive 的，但绑定之后，才新增的属性，不是 reactive 的，
+            // 故需要通过下面这种方法，让其成为 reactive 的属性
+            // conversationState.currentConversationInfo.conversation._targetOnlineStateDesc = userOnlineStatus.desc();
+            // Vue.set(conversationState.currentConversationInfo.conversation, '_targetOnlineStateDesc', this.getUserOnlineState(convInfo.conversation.target))
             conversationState.currentConversationInfo.conversation._targetOnlineStateDesc = this.getUserOnlineState(convInfo.conversation.target);
         } else {
             //TODO
@@ -1279,6 +1423,7 @@ let store = {
         userInfos = userInfos.map(u => {
             if (groupId) {
                 u._displayName = wfc.getGroupMemberDisplayNameEx(u);
+                u._displayNameIgnoreFriendAlias = wfc.getGroupMemberDisplayNameEx(u, true);
             } else {
                 u._displayName = wfc.getUserDisplayNameEx(u);
             }
@@ -1315,13 +1460,16 @@ let store = {
     },
 
     _loadChannelList() {
-        let channelIds = wfc.getListenedChannels();
-        if (channelIds) {
-            contactState.channelList = channelIds.map(channelId => wfc.getChannelInfo(channelId, false));
-            contactState.channelList = contactState.channelList.filter(ch => {
-                return !(ch instanceof NullChannelInfo)
-            });
-        }
+        wfc.getRemoteListenedChannels(channelIds => {
+            if (channelIds) {
+                contactState.channelList = channelIds.map(channelId => wfc.getChannelInfo(channelId, false));
+                contactState.channelList = contactState.channelList.filter(ch => {
+                    return !(ch instanceof NullChannelInfo)
+                });
+            }
+        }, err => {
+            console.error('getRemoteListenedChannels error', err)
+        });
     },
     _loadFavContactList() {
         let favUserIds = wfc.getFavUsers();
@@ -1343,34 +1491,78 @@ let store = {
         contactState.currentFriendRequest = friendRequest;
         contactState.currentFriend = null;
         contactState.currentOrganization = null;
+        contactState.currentChatroom = null;
         contactState.currentGroup = null;
+        contactState.currentChannel = null;
+        contactState.currentExternalDomain = null;
     },
 
     setCurrentFriend(friend) {
         contactState.currentFriendRequest = null;
         contactState.currentFriend = friend;
         contactState.currentOrganization = null;
+        contactState.currentChatroom = null;
         contactState.currentGroup = null;
+        contactState.currentChannel = null;
+        contactState.currentExternalDomain = null;
     },
 
     setCurrentGroup(group) {
         contactState.currentFriendRequest = null;
         contactState.currentFriend = null;
         contactState.currentOrganization = null;
+        contactState.currentChatroom = null;
         contactState.currentGroup = group;
+        contactState.currentChannel = null;
+        contactState.currentExternalDomain = null;
+    },
+
+    setCurrentChannel(channel) {
+        contactState.currentFriendRequest = null;
+        contactState.currentFriend = null;
+        contactState.currentOrganization = null;
+        contactState.currentChatroom = null;
+        contactState.currentGroup = null;
+        contactState.currentChannel = channel;
+        contactState.currentExternalDomain = null;
     },
 
     setCurrentOrganization(organization) {
         contactState.currentFriendRequest = null;
         contactState.currentFriend = null;
         contactState.currentGroup = null;
-        // contactState.currentChannel = null;
+        contactState.currentChannel = null;
+        contactState.currentChatroom = null;
         contactState.currentOrganization = organization;
+        contactState.currentExternalDomain = null;
+    },
+
+    setCurrentExternalDomain(domainInfo) {
+        contactState.currentFriendRequest = null;
+        contactState.currentFriend = null;
+        contactState.currentGroup = null;
+        contactState.currentChannel = null;
+        contactState.currentChatroom = null;
+        contactState.currentOrganization = null;
+        contactState.currentExternalDomain = domainInfo;
+    },
+
+    setCurrentChatroom(chatroom) {
+        contactState.currentFriendRequest = null;
+        contactState.currentFriend = null;
+        contactState.currentGroup = null;
+        contactState.currentChannel = null;
+        contactState.currentOrganization = null;
+        contactState.currentChatroom = chatroom;
+        contactState.currentExternalDomain = null;
     },
     toggleGroupList() {
         contactState.expandGroup = !contactState.expandGroup;
     },
 
+    toggleChannelList() {
+        contactState.expandChanel = !contactState.expandChanel;
+    },
     toggleFriendRequestList() {
         contactState.expandFriendRequestList = !contactState.expandFriendRequestList;
     },
@@ -1399,17 +1591,17 @@ let store = {
             }
 
         } else {
-            searchState.contactSearchResult = [];
-            searchState.conversationSearchResult = [];
-            searchState.groupSearchResult = [];
-            searchState.messageSearchResult = [];
-            searchState.userSearchResult = [];
+            searchState._reset();
         }
     },
 
-    searchUser(query) {
+    setSearchDomainInfo(domainInfo) {
+        searchState.searchDomainInfo = domainInfo;
+    },
+
+    searchUser(query, domainId = '') {
         console.log('search user', query)
-        wfc.searchUser(query, SearchType.General, 0, ((keyword, userInfos) => {
+        wfc.searchUserEx(domainId, query, SearchType.General, 0, ((keyword, userInfos) => {
             console.log('search user result', query, userInfos)
             if (searchState.query === keyword) {
                 searchState.userSearchResult = userInfos.filter(u => !wfc.isMyFriend(u.uid));
@@ -1420,6 +1612,22 @@ let store = {
                 searchState.userSearchResult = [];
             }
         });
+    },
+
+    searchChannel(query) {
+        console.log('search channel')
+        wfc.searchChannel(query, true, (keyword, channelInfos) => {
+            console.log('search channel result', channelInfos);
+            if (searchState.query === keyword) {
+                console.log('search channel result', channelInfos);
+                searchState.channelSearchResult = channelInfos;
+            }
+        }, err => {
+            console.log('search channel error', query, err)
+            if (searchState.query === query) {
+                searchState.channelSearchResult = [];
+            }
+        })
     },
 
     // TODO 到底是什么匹配了
@@ -1566,15 +1774,13 @@ let store = {
 
         let groupName = contactState.selfUserInfo.displayName;
         let groupMemberIds = [];
-        let groupMemberPortraits = [contactState.selfUserInfo.portrait];
+
         for (let i = 0; i < users.length; i++) {
             groupMemberIds.push(users[i].uid)
             if (i <= 3) {
                 groupName += '、' + users[i].displayName;
             }
-            if (i < 8) {
-                groupMemberPortraits.push(users[i].portrait)
-            }
+
         }
         groupName = groupName.substr(0, groupName.length - 1);
 
@@ -1710,6 +1916,7 @@ let store = {
         if (info && (info.unreadCount.unread + info.unreadCount.unreadMention + info.unreadCount.unreadMentionAll) > 0) {
             wfc.clearConversationUnreadStatus(conversation);
 
+            this.updateTray();
         }
     },
     clearAllUnreadStatus() {
@@ -1718,11 +1925,16 @@ let store = {
             info.unreadCount = new UnreadCount();
         });
 
+        this.updateTray();
     },
     notify(msg) {
         let content = msg.messageContent;
         let tip
-        //Todo
+        let now = new Date().getTime();
+        if (this._lastNotificationTime && now - this._lastNotificationTime < 4000) {
+            return;
+        }
+        this._lastNotificationTime = now;
         if (msg.direction === 0 /* && !(type===0 && target===file_transfer_id)*/) {
             return;
         }
@@ -1747,8 +1959,29 @@ let store = {
         }
     },
 
-}
+    updateTray() {
+        // do nothing
+    },
 
+    updateLinuxTitle(unreadCount) {
+        // do nothing
+    },
+
+    updateVoipStatus(conversation, isOngoing) {
+        miscState.isVoipOngoing = isOngoing;
+        if (!conversation) {
+            return
+        }
+        conversationState.conversationInfoList.forEach(ci => {
+            if (ci.conversation.equal(conversation)) {
+                ci._isVoipOngoing = isOngoing;
+            } else {
+                ci._isVoipOngoing = false;
+            }
+        })
+    },
+
+}
 
 function _reset() {
     conversationState._reset();
@@ -1764,4 +1997,8 @@ function _reset() {
     );
 }
 
+window.__store = store;
+window.__wfc = wfc
+window.stringValue = stringValue;
+window.longValue = longValue;
 export default store
