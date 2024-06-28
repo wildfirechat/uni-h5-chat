@@ -10,6 +10,11 @@
         <div class="about" @click="showApiTest">
             <text>API测试</text>
         </div>
+        <div class="info">
+            <text>
+                {{ info }}
+            </text>
+        </div>
         <button class="logout-button" @click="logout">退出登录</button>
     </div>
 
@@ -19,12 +24,25 @@
 import wfc from "../../wfc/client/wfc";
 import {clear} from "../util/storageHelper";
 import store from "../../store";
+import avengineKit from "../../wfc/av/internal/engine.min";
+import Config from "../../config";
 
 export default {
     name: "MePage",
     data() {
         return {
             user: store.state.contact.selfUserInfo,
+            info: ''
+        }
+    },
+    mounted() {
+        if (avengineKit.startConference) {
+            this.info += '高级版音视频\n'
+        } else {
+            this.info += '多人版音视频\n'
+            Config.ICE_SERVERS.forEach(obj => {
+                this.info += obj[0] + ' ' + obj[1] + ' ' + obj[2];
+            })
         }
     },
     methods: {
@@ -47,7 +65,7 @@ export default {
             clear();
             uni.reLaunch(
                 {
-                    url:'/pages/login/login'
+                    url: '/pages/login/login'
                 }
             );
         },
@@ -59,7 +77,7 @@ export default {
                 }
             });
         },
-        showApiTest(){
+        showApiTest() {
             uni.navigateTo({
                 url: '/pages/misc/ApiTestPage',
                 fail: (e) => {
@@ -116,6 +134,11 @@ export default {
 
 .about:active {
     background: #d6d6d6;
+}
+
+.info {
+    width: 100%;
+    padding: 15px 10px;
 }
 
 .logout-button {
