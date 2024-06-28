@@ -36,6 +36,7 @@ import NullChannelInfo from "./wfc/model/NullChannelInfo";
 import CallStartMessageContent from "./wfc/av/messages/callStartMessageContent";
 import {storeToRefs} from "pinia";
 import {pstore} from "./pstore";
+import {imageThumbnail, videoDuration, videoThumbnail} from "./pages/util/imageUtil";
 
 /**
  * 一些说明
@@ -834,11 +835,33 @@ let store = {
         let messageContent;
         switch (messageContentmediaType) {
             case MessageContentMediaType.Image:
-                messageContent = new ImageMessageContent(fileOrLocalPath, remotePath);
+                let {thumbnail: it, width: iw, height: ih} = await imageThumbnail(file);
+                it = it ? it : Config.DEFAULT_THUMBNAIL_URL;
+                console.log('image file', file)
+                if (it.length > 15 * 1024) {
+                    console.warn('generated thumbnail is too large, use default thumbnail', it.length);
+                    it = Config.DEFAULT_THUMBNAIL_URL;
+                }
+                messageContent = new ImageMessageContent(fileOrLocalPath, remotePath, it.split(',')[1]);
+                messageContent.imageWidth = iw;
+                messageContent.imageHeight = ih
                 break;
             case MessageContentMediaType.Video:
-                messageContent = new VideoMessageContent(fileOrLocalPath, remotePath, '', 0);
-                break;
+                let vtr = await videoThumbnail(file);
+                if (vtr) {
+                    let {thumbnail: vt, width: vw, height: vh} = vtr;
+                    let duration = await videoDuration(file)
+                    duration = Math.ceil(duration * 1000);
+                    if (vt.length > 15 * 1024) {
+                        console.warn('generated thumbnail is too large, use default thumbnail', vt.length);
+                        vt = Config.DEFAULT_THUMBNAIL_URL;
+                    }
+                    messageContent = new VideoMessageContent(fileOrLocalPath, remotePath, vt.split(',')[1]);
+                    // TODO width and height
+                    break;
+                } else {
+                    // fallback to file message
+                }
             case MessageContentMediaType.File:
                 messageContent = new FileMessageContent(fileOrLocalPath, remotePath);
                 break;
