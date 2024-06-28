@@ -38,6 +38,7 @@ import {storeToRefs} from "pinia";
 import {pstore} from "./pstore";
 import {imageThumbnail, videoDuration, videoThumbnail} from "./pages/util/imageUtil";
 import avenginekitproxy from "./wfc/av/engine/avenginekitproxy";
+import ModifyGroupSettingNotification from "./wfc/messages/notification/modifyGroupSettingNotification";
 
 /**
  * 一些说明
@@ -662,8 +663,8 @@ let store = {
         conversationState.currentConversationMessageList.length = 0;
         conversationState.currentConversationOldestMessageId = 0;
         conversationState.currentConversationOldestMessageUid = 0;
-        // 会话页面会触发调用 loadConversationHistoryMessages，这儿不用提前加载消息
-        // this._loadCurrentConversationMessages();
+        // 和 vue-chat/vue-pc-chat 不一样，页面默认不会触发加载历史消息
+        this._loadCurrentConversationMessages();
         this._patchCurrentConversationOnlineStatus();
 
         conversationState.currentConversationRead = wfc.getConversationRead(conversationInfo.conversation);
