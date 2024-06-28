@@ -8,6 +8,13 @@
   </head>
   <body>
     <div id="app"></div>
+    <!--用来实现视频缩略图-->
+    <div id="styled_video_container" style="position: fixed; top: 0; left: 0; width: auto; height: auto; z-index: -999; background-size: cover; transition: 1s opacity; opacity: 0">
+        <video id="bgvid" playsinline autoplay muted crossorigin="anonymous">
+            <!-- <source src="http://thenewcode.com/assets/videos/polina.webm" type="video/webm">
+            <source src="http://thenewcode.com/assets/videos/polina.mp4" type="video/mp4"> -->
+        </video>
+    </div>
     <script type="module" src="/main.js"></script>
   </body>
 </html>
