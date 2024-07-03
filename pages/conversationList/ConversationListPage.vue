@@ -38,12 +38,10 @@ export default {
             contextMenuX: 0,
             contextMenuY: 0,
             contextMenuItems: [],
-            isPageHidden: false,
         };
     },
 
     onShow() {
-        this.isPageHidden = false;
         console.log('conversationList onShow', this.sharedConversationState.conversationInfoList.length)
         let userId = getItem('userId');
         if (!userId) {
@@ -56,11 +54,12 @@ export default {
                 }
             );
         }
+
+        this.updateTabBarBadge();
     },
 
     onHide() {
         console.log('conversationList onHide');
-        this.isPageHidden = true;
         this.$refs.mainActionMenu.hide();
     },
 
@@ -163,6 +162,20 @@ export default {
                     break;
 
             }
+        },
+
+        updateTabBarBadge() {
+            let newValue = this.unread;
+            if (newValue > 0) {
+                uni.setTabBarBadge({
+                    index: 0,
+                    text: '' + newValue
+                })
+            } else {
+                uni.removeTabBarBadge({
+                    index: 0
+                })
+            }
         }
     },
     activated() {
@@ -203,28 +216,6 @@ export default {
     },
     updated() {
         console.log('updated xxx')
-    },
-
-    watch: {
-        // TODO
-        // FIXME
-        // 很奇怪，会被触发两次
-        unread(newValue, oldValue) {
-            console.log('watch unread', newValue, oldValue, this.isPageHidden, this)
-            if (this.isPageHidden) {
-                return
-            }
-            if (newValue > 0) {
-                uni.setTabBarBadge({
-                    index: 0,
-                    text: '' + newValue
-                })
-            } else {
-                uni.removeTabBarBadge({
-                    index: 0
-                })
-            }
-        }
     },
 
     components: {
