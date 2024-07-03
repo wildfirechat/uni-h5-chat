@@ -960,20 +960,27 @@ let store = {
                 messageContent.imageHeight = ih;
                 break;
             case MessageContentMediaType.Video:
-                let vtr = await videoThumbnail(file);
-                if (vtr) {
-                    let {thumbnail: vt, width: vw, height: vh} = vtr;
-                    let duration = await videoDuration(file)
-                    duration = Math.ceil(duration * 1000);
-                    if (vt.length > 15 * 1024) {
-                        console.warn('generated thumbnail is too large, use default thumbnail', vt.length);
-                        vt = Config.DEFAULT_THUMBNAIL_URL;
-                    }
-                    messageContent = new VideoMessageContent(fileOrLocalPath, remotePath, vt.split(',')[1]);
-                    // TODO width and height
+                console.log('send video', file)
+                if (helper.isInWeiXinBrowser()) {
+                    let thumbnail = Config.DEFAULT_THUMBNAIL_URL.split(',')[1]
+                    messageContent = new VideoMessageContent(fileOrLocalPath, remotePath, thumbnail);
                     break;
                 } else {
-                    // fallback to file message
+                    let vtr = await videoThumbnail(file);
+                    if (vtr) {
+                        let {thumbnail: vt, width: vw, height: vh} = vtr;
+                        let duration = await videoDuration(file)
+                        duration = Math.ceil(duration * 1000);
+                        if (vt.length > 15 * 1024) {
+                            console.warn('generated thumbnail is too large, use default thumbnail', vt.length);
+                            vt = Config.DEFAULT_THUMBNAIL_URL;
+                        }
+                        messageContent = new VideoMessageContent(fileOrLocalPath, remotePath, vt.split(',')[1]);
+                        // TODO width and height
+                        break;
+                    } else {
+                        // fallback to file message
+                    }
                 }
             case MessageContentMediaType.File:
             // do nothing

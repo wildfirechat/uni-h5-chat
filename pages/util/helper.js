@@ -231,6 +231,8 @@ const helper = {
         return newtime
     },
 
+    isInWeiXinBrowser: () => /micromessenger/.test(navigator.userAgent.toLowerCase())
+
 };
 
 
