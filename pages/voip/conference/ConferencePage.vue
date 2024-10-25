@@ -45,6 +45,13 @@
                             <text v-if="participant._isHost" class="indicator iconfont icon-ion-person" style="background: #FD802E">&#xf213;</text>
                             <text v-if="participant._isAudience" class="indicator iconfont icon-ion-ios-mic-off" style="color: red;">&#xf45f;</text>
                         </div>
+                        <video v-if="!participant._isAudience && participant.uid !== selfUserInfo.uid && participant._stream"
+                               :srcObject.prop="participant._stream"
+                               :muted="participant.uid === selfUserInfo.uid"
+                               class="audio"
+                               style="height: 0"
+                               webkit-playsinline playsinline x5-playsinline preload="auto"
+                               autoPlay/>
                         <text class="desc">{{ userName(participant) }}</text>
                     </div>
                 </section>
@@ -277,6 +284,7 @@ export default {
             userInfo._isAudioMuted = profile.audioMuted;
             userInfo._volume = 0;
             userInfo._isScreenSharing = !!profile.screenSharing;
+            userInfo._stream = profile.stream;
             return userInfo;
         },
 
@@ -359,9 +367,14 @@ export default {
                 for (let i = 0; i < this.participantUserInfos.length; i++) {
                     let p = this.participantUserInfos[i];
                     if (p.uid === userId && p._isScreenSharing === screenSharing) {
-                        p._isVideoMuted = false;
+                        if (p._isVideoMuted) {
+                            let videoTrack = stream.getVideoTracks()[0];
+                            if (videoTrack) {
+                                // 如果不删除的话，video 标签会一直缓冲，不能开始播放音频
+                                stream.removeTrack(videoTrack)
+                            }
+                        }
                         p._stream = stream;
-                        p._stream.timestamp = new Date().getTime();
                         break;
                     }
                 }

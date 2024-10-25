@@ -6,18 +6,19 @@
                ref="remoteVideoView"
                :style="computedParticipantSizeStyle"
                :srcObject.prop="participant._stream"
+               playsInline
                :muted="participant.uid === selfUserId"
-               class="video"
-               autoplay="true"
-        />
+               autoPlay/>
         <div v-else
              class="avatar-container">
             <image class="avatar" :src="participant.portrait" :alt="participant"/>
         </div>
-        <video v-if="!participant._isAudience && participant.videoMuted && participant.uid !== selfUserId && participant._stream"
+        <video v-if="!participant._isAudience && participant.uid !== selfUserId && participant._stream"
                :srcObject.prop="participant._stream"
                :muted="participant.uid === selfUserId"
                class="audio"
+               style="height: 0"
+               webkit-playsinline playsinline x5-playsinline preload="none"
                autoPlay/>
         <div v-if="false && !participant._isVideoMuted" class="video-stream-tip-container">
             <p>{{ '双击视频，将其设置为焦点' }}</p>
@@ -41,7 +42,7 @@ export default {
     name: "ConferenceParticipantVideoView",
     props: {
         currentPageParticipants: {
-            type: Object,
+            type: Array,
             required: true
         },
         participant: {
@@ -87,20 +88,20 @@ export default {
         console.log('view updated, re-setupVideoView')
     },
     methods: {
-        // onDbClickVideo() {
-        //     if (conferenceManager.isOwner()) {
-        //         conferenceManager.requestFocus(this.participant.uid);
-        //     } else {
-        //         if (conferenceManager.conferenceInfo.focus) {
-        //             this.$notify({
-        //                 text: '主持人已设置了焦点用户',
-        //                 type: 'warn'
-        //             });
-        //         } else {
-        //             conferenceManager.localFocusUser = this.participant;
-        //         }
-        //     }
-        // },
+        onDbClickVideo() {
+            // if (conferenceManager.isOwner()) {
+            //     conferenceManager.requestFocus(this.participant.uid);
+            // } else {
+            //     if (conferenceManager.conferenceInfo.focus) {
+            //         this.$notify({
+            //             text: '主持人已设置了焦点用户',
+            //             type: 'warn'
+            //         });
+            //     } else {
+            //         conferenceManager.localFocusUser = this.participant;
+            //     }
+            // }
+        },
 
         switchVideoType(userId, screenSharing) {
             if (!this.session) {

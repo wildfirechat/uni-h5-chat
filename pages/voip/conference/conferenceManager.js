@@ -13,8 +13,7 @@ class ConferenceManager {
 
     vueInstance;
 
-    session = null;
-    conferenceInfo = null;
+    conferenceInfo = {};
     applyingUnmuteAudioMembers = [];
     applyingUnmuteVideoMembers = [];
     isApplyingUnmuteAudio = false;
