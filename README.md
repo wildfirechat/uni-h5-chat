@@ -20,6 +20,7 @@
 
 ## 打包
 
+1. 如果需要配置`publicPath`，可修改`vite.config.js`文件里面的`base`字段
 1. HBuilderX，发行，网站-PC Web或手机H5
 
 ## 常见问题说明
