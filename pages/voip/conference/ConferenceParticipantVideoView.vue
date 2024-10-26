@@ -13,8 +13,8 @@
              class="avatar-container">
             <image class="avatar" :src="participant.portrait" :alt="participant"/>
         </div>
-        <video v-if="!participant._isAudience && participant.uid !== selfUserId && participant._stream"
-               :srcObject.prop="participant._stream"
+        <video v-if="!participant._isAudience && participant._isVideoMuted && participant.uid !== selfUserId && participant._stream"
+               :srcObject.prop="participant._audioStream"
                :muted="participant.uid === selfUserId"
                class="audio"
                style="height: 0"
