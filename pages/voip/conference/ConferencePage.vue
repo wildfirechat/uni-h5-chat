@@ -45,7 +45,7 @@
                             <text v-if="participant._isHost" class="indicator iconfont icon-ion-person" style="background: #FD802E">&#xf213;</text>
                             <text v-if="participant._isAudience" class="indicator iconfont icon-ion-ios-mic-off" style="color: red;">&#xf45f;</text>
                         </div>
-                        <video v-if="!participant._isAudience && participant._isVideoMuted && participant.uid !== selfUserInfo.uid && participant._stream"
+                        <video v-if="!participant._isAudience && participant._isVideoMuted && participant.uid !== selfUserInfo.uid && participant._audioStream"
                                :srcObject.prop="participant._audioStream"
                                :muted="participant.uid === selfUserInfo.uid"
                                class="audio"
@@ -368,16 +368,15 @@ export default {
                     let p = this.participantUserInfos[i];
                     if (p.uid === userId && p._isScreenSharing === screenSharing) {
                         p._stream = stream;
-                        if (p._isVideoMuted) {
-                            let audioStream = stream.clone()
-                            let videoTrack = audioStream.getVideoTracks()[0];
-                            if (videoTrack) {
-                                // 如果不删除的话，video 标签会一直缓冲，不能开始播放音频
-                                audioStream.removeTrack(videoTrack)
-                                p._audioStream = audioStream ;
-                            }else {
-                                p._audioStream = stream;
-                            }
+
+                        let audioStream = stream.clone()
+                        let videoTrack = audioStream.getVideoTracks()[0];
+                        if (videoTrack) {
+                            // 如果不删除的话，video 标签会一直缓冲，不能开始播放音频
+                            audioStream.removeTrack(videoTrack)
+                            p._audioStream = audioStream;
+                        } else {
+                            p._audioStream = stream;
                         }
                         break;
                     }
