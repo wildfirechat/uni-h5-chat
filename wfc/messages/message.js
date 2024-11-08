@@ -47,6 +47,7 @@ import Config from '../../config.js';
 import Long from 'long'
 import UnsupportMessageContent from "../messages/unsupportMessageConten";
 import RecallMessageNotification from "../messages/notification/recallMessageNotification";
+import CustomMessageConfig from "../../wfc_custom_message/customMessageConfig";
 
 export default class Message {
     conversation = {};
@@ -134,7 +135,7 @@ export default class Message {
             if (contentClazz) {
                 let content = new contentClazz();
                 if (obj.content.__notLoaded) {
-                    content.__notLoaded = true;
+                    content.notLoaded = true;
                     content.type = obj.content.type;
                 } else {
                     try {
@@ -200,7 +201,10 @@ export default class Message {
     }
 
     static messageContentFromMessagePayload(payload, from) {
-        let contentClazz = MessageConfig.getMessageContentClazz(payload.type);
+        let contentClazz = CustomMessageConfig.getMessageContentClazz(payload.type);
+        if(!contentClazz){
+            contentClazz = MessageConfig.getMessageContentClazz(payload.type);
+        }
         contentClazz = contentClazz ? contentClazz : UnsupportMessageContent;
         let content = new contentClazz();
         content.decode(payload);

@@ -240,7 +240,7 @@ export default class CallSession {
 
     /**
      * 仅会议时有效
-     * 设置音频输入设备
+     * 设置音频输入设备，设置音频输出设备，请参考：https://developer.mozilla.org/en-US/docs/Web/API/Audio_Output_Devices_API
      * @param {string} audioDeviceId 音频设备 id
      */
     setAudioInputDeviceId(audioDeviceId) {
@@ -253,6 +253,14 @@ export default class CallSession {
      * @param {string} videoDeviceId  视频设备 id
      */
     setVideoInputDeviceId(videoDeviceId) {
+    }
+
+    /**
+     * 仅会议版有效
+     * 设置输入 MediaStream
+     * @param {MediaStream} stream
+     */
+    setInputStream(stream){
 
     }
 

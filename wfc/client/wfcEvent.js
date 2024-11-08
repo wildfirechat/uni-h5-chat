@@ -22,10 +22,14 @@ export default class EventType {
     static DeleteMessage = 'deleteMsg';
     // function (message) {}
     static MessageStatusUpdate = 'msgStatusUpdate';
+    // function (message) {}
+    static MessageContentUpdate = 'msgContentUpdate';
     // function (connectionStatus) {}
     static ConnectionStatusChanged = 'connectionStatusChanged';
     // function (host/ip/port) {}
     static ConnectToServer = 'connectToServer';
+    // function (host/ip/port/mainNw) {}
+    static ConnectedToServer = 'connectedToServer';
     // function (userInfos) {}
     static UserInfosUpdate = 'userInfosUpdate';
     // function (channelInfos) {}
