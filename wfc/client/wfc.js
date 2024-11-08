@@ -51,7 +51,7 @@ export class WfcManager {
         impl.init(args);
         avenginekit.setup(self);
         //self.setProxyInfo("", "192.168.1.80", 1080, "", "");
-		console.log('wfc init end')
+        console.log('wfc init end')
     }
 
     /**
@@ -80,6 +80,7 @@ export class WfcManager {
     getProtoRevision() {
         return impl.getProtoRevision();
     }
+
     /*
      * 启用国密加密。注意需要服务器端同步开启国密配置
      */
@@ -106,23 +107,21 @@ export class WfcManager {
         impl.setDeviceToken(pushType, token);
     }
 
-
     /**
-    * 断开连接。当切换用户时，需要先断开连接，等待几秒钟后再调用connect连接新用户。
-    */
+     * 断开连接。当切换用户时，需要先断开连接，等待几秒钟后再调用connect连接新用户。
+     */
     disconnect() {
         impl.disconnect();
     }
 
     /**
-    * 设置包名。
-    * @param {String} packageName 包名
-    *
-    */
+     * 设置包名。
+     * @param {String} packageName 包名
+     *
+     */
     setPackageName(packageName) {
         impl.setPackageName(packageName);
     }
-
 
     /**
      * 获取当前用户的id
@@ -164,6 +163,7 @@ export class WfcManager {
         return impl.getConnectionStatus();
     }
 
+
     /**
      * 设置网络策略，仅专业版支持
      * @param {int} strategy 网络策略。0 是自动选择；1 选择主网络；2选择备用网络
@@ -198,7 +198,7 @@ export class WfcManager {
     getFavGroupList() {
         let groupInfos = impl.getMyGroupList();
         groupInfos.map(info => {
-            if (!info.portrait || info.portrait.startsWith(Config.APP_SERVER)) {
+            if (!info.portrait) {
                 info.portrait = this.defaultGroupPortrait(info);
             }
             return info;
@@ -231,7 +231,6 @@ export class WfcManager {
         if (!userInfo) {
             return '<' + userId + '>';
         }
-
         return userInfo.groupAlias ? userInfo.groupAlias : (userInfo.friendAlias && !ignoreFriendAlias ? userInfo.friendAlias : (userInfo.displayName ? userInfo.displayName : '<' + userId + '>'))
     }
 
@@ -263,7 +262,7 @@ export class WfcManager {
      */
     getUserInfo(userId, refresh = false, groupId = '') {
         let userInfo = impl.getUserInfo(userId, refresh, groupId);
-        if (!userInfo.portrait || userInfo.portrait.startsWith(Config.APP_SERVER)) {
+        if (!userInfo.portrait) {
             userInfo.portrait = this.defaultUserPortrait(userInfo);
         }
         return userInfo;
@@ -278,7 +277,7 @@ export class WfcManager {
      */
     getUserInfoEx(userId, refresh, success, fail) {
         impl.getUserInfoEx(userId, refresh, success, fail);
-            }
+    }
 
     /**
      * 批量从服务端拉取用户信息
@@ -286,10 +285,10 @@ export class WfcManager {
      * @param {function ([UserInfo])} successCB 成功回调
      * @param {function (Number)} failCB 失败回调
      */
-    getUserInfosEx(userIds,  successCB, failCB) {
+    getUserInfosEx(userIds, successCB, failCB) {
         impl.getUserInfosEx(userIds, userInfos => {
-            userInfos.forEach((u)=>{
-                if(!u.portrait || u.portrait.startsWith(Config.APP_SERVER)){
+            userInfos.forEach((u) => {
+                if (!u.portrait) {
                     u.portrait = this.defaultUserPortrait(u);
                 }
             });
@@ -308,7 +307,7 @@ export class WfcManager {
     getUserInfos(userIds, groupId) {
         let userInfos = impl.getUserInfos(userIds, groupId);
         userInfos.forEach((u) => {
-            if (!u.portrait || u.portrait.startsWith(Config.APP_SERVER)) {
+            if (!u.portrait) {
                 u.portrait = this.defaultUserPortrait(u)
             }
         });
@@ -341,7 +340,7 @@ export class WfcManager {
     searchUserEx(domainId, keyword, searchType, page, successCB, failCB) {
         impl.searchUserEx(domainId, keyword, searchType, page, (keyword, userInfos) => {
             userInfos.forEach((u) => {
-                if (!u.portrait || u.portrait.startsWith(Config.APP_SERVER)) {
+                if (!u.portrait) {
                     u.portrait = this.defaultUserPortrait(u)
                 }
             });
@@ -368,9 +367,9 @@ export class WfcManager {
         let results = impl.searchGroups(keyword);
         results.forEach(r => {
             let info = r.groupInfo;
-                if (!info.portrait || info.portrait.startsWith(Config.APP_SERVER)) {
-                    info.portrait = this.defaultGroupPortrait(info);
-                }
+            if (!info.portrait) {
+                info.portrait = this.defaultGroupPortrait(info);
+            }
         })
         return results;
     }
@@ -565,7 +564,7 @@ export class WfcManager {
      */
     getGroupInfo(groupId, refresh = false) {
         let info = impl.getGroupInfo(groupId, refresh);
-        if (!info.portrait || info.portrait.startsWith(Config.APP_SERVER)) {
+        if (!info.portrait) {
             info.portrait = this.defaultGroupPortrait(info);
         }
         return info;
@@ -580,7 +579,7 @@ export class WfcManager {
     getGroupInfos(groupIds, refresh = false) {
         let infos = impl.getGroupInfos(groupIds, refresh);
         infos.forEach(info => {
-            if (!info.portrait || info.portrait.startsWith(Config.APP_SERVER)) {
+            if (!info.portrait) {
                 info.portrait = this.defaultGroupPortrait(info);
             }
         })
@@ -596,7 +595,7 @@ export class WfcManager {
      */
     getGroupInfoEx(groupId, refresh = false, successCB, failCB) {
         impl.getGroupInfoEx(groupId, refresh, info => {
-            if (!info.portrait || info.portrait.startsWith(Config.APP_SERVER)) {
+            if (!info.portrait) {
                 info.portrait = this.defaultGroupPortrait(info);
             }
             successCB && successCB(info);
@@ -856,6 +855,7 @@ export class WfcManager {
         impl.setFavGroup(groupId, fav, successCB, failCB);
     }
 
+
     /**
      * 获取当前用户所有群组ID，此方法消耗资源较大，不建议高频使用。
      *
@@ -878,6 +878,7 @@ export class WfcManager {
     async getCommonGroups(userId, successCB, failCB) {
         impl.getCommonGroups(userId, successCB, failCB);
     }
+
     /**
      * 获取用户设置，保存格式可以理解为：scope + key => value
      * @param {number} scope 命名空间，可选值参考{@link UserSettingScope}
@@ -1112,6 +1113,7 @@ export class WfcManager {
     getMyChannels() {
         return impl.getMyChannels();
     }
+
 
     /**
      * @deprecated 已废弃，请使用{@link getRemoteListenedChannels}
@@ -1507,6 +1509,7 @@ export class WfcManager {
     getMessagesByTimestampV2(conversation, contentTypes, timestamp, before, count, withUser, successCB, failCB) {
         impl.getMessagesByTimestampV2(conversation, contentTypes, timestamp, before, count, withUser, successCB, failCB);
     }
+
     /**
      * 获取用户会话消息
      * @param {string} userId 用户id
@@ -1536,7 +1539,6 @@ export class WfcManager {
     getUserMessagesExV2(userId, conversationTypes, lines, fromIndex, before, count, contentTypes, successCB, failCB) {
         impl.getUserMessagesExV2(userId, conversationTypes, lines, fromIndex, before, count, contentTypes, successCB, failCB);
     }
-
 
     /**
      * 获取会话第一条未读消息的消息id
@@ -1584,7 +1586,7 @@ export class WfcManager {
      * @param {function ([Message])} successCB
      * @param failCB
      */
-    loadRemoteConversationMessagesEx(conversation, contentTypes, beforeUid, count, filterLocalMessage, successCB, failCB){
+    loadRemoteConversationMessagesEx(conversation, contentTypes, beforeUid, count, filterLocalMessage, successCB, failCB) {
         impl.loadRemoteMessages(conversation, contentTypes, beforeUid, count, successCB, failCB, filterLocalMessage);
     }
 
@@ -1597,7 +1599,7 @@ export class WfcManager {
      * @param {function ([Message])} successCB
      * @param failCB
      */
-    loadRemoteLineMessages(line, contentTypes, beforeUid, count, successCB, failCB){
+    loadRemoteLineMessages(line, contentTypes, beforeUid, count, successCB, failCB) {
         impl.loadRemoteLineMessages(line, contentTypes, beforeUid, count, successCB, failCB)
     }
 
@@ -1611,7 +1613,7 @@ export class WfcManager {
      * @param {function ([Message])} successCB
      * @param failCB
      */
-    loadRemoteLineMessages(line, contentTypes, beforeUid, count, filterLocalMessage, successCB, failCB){
+    loadRemoteLineMessages(line, contentTypes, beforeUid, count, filterLocalMessage, successCB, failCB) {
         impl.loadRemoteLineMessages(line, contentTypes, beforeUid, count, successCB, failCB, filterLocalMessage)
     }
 
@@ -1621,7 +1623,7 @@ export class WfcManager {
      * @param {function (Message)} successCB
      * @param failCB
      */
-    loadRemoteMessage(messageUid, successCB, failCB){
+    loadRemoteMessage(messageUid, successCB, failCB) {
         impl.loadRemoteMessage(messageUid, successCB, failCB);
     }
 
@@ -1778,6 +1780,7 @@ export class WfcManager {
     cancelSendingMessage(messageId) {
         return impl.cancelSendingMessage(messageId);
     }
+
     // 更新了原始消息的内容
     /**
      * 撤回消息
@@ -1805,12 +1808,12 @@ export class WfcManager {
      * @param {function ()} successCB
      * @param {function (number)} failCB
      */
-    deleteRemoteMessageByUid(msgUid, successCB, failCB){
+    deleteRemoteMessageByUid(msgUid, successCB, failCB) {
         impl.deleteRemoteMessage(msgUid, successCB, failCB);
     }
 
     /**
-    * 更新远程消息消息内容，只有专业版支持。客户端仅能更新自己发送的消息，更新的消息类型不能变，更新的消息类型是服务配置允许更新的内容。Server API更新则没有限制。
+     * 更新远程消息消息内容，只有专业版支持。客户端仅能更新自己发送的消息，更新的消息类型不能变，更新的消息类型是服务配置允许更新的内容。Server API更新则没有限制。
      * @param {Long | string} msgUid 消息uid
      * @param {MessageContent} messageContent 具体的消息内容，一定要求是{@link MessageContent} 的子类，不能是普通的object
      * @param {boolean} distribute 是否重新分发给其他客户端
@@ -1818,7 +1821,7 @@ export class WfcManager {
      * @param {function ()} successCB
      * @param {function (number)} failCB
      */
-    updateRemoteMessageContent(msgUid, messageContent, distribute, updateLocal, successCB, failCB){
+    updateRemoteMessageContent(msgUid, messageContent, distribute, updateLocal, successCB, failCB) {
         impl.updateRemoteMessageContent(msgUid, messageContent, distribute, updateLocal, successCB, failCB);
     }
 
@@ -1866,6 +1869,7 @@ export class WfcManager {
         impl.updateMessageContent(messageId, messageContent);
     }
 
+
     /**
      * 更新消息状态
      * @param {number} messageId 消息id
@@ -1889,10 +1893,11 @@ export class WfcManager {
         impl.uploadMedia(fileName, fileOrData, mediaType, successCB, failCB, progressCB);
     }
 
+
     /**
-    * 获取协议栈版本
-    * @returns {String} 协议栈版本
-    */
+     * 获取协议栈版本
+     * @returns {String} 协议栈版本
+     */
     getVersion() {
         return impl.getVersion();
     }
@@ -1911,14 +1916,14 @@ export class WfcManager {
         return impl.isSupportBigFilesUpload();
     }
 
-   /**
-    * 获取上传链接。一般用户大文件上传。
-    * @param {string} fileName
-    * @param {number} mediaType 媒体类型，可选值参考{@link MessageContentMediaType}
-    * @param {string} contentType HTTP请求的ContentType header，为空时默认为"application/octet-stream"
-    * @param {function (string, string)} successCB 回调通知上传成功之后的url
-    * @param {function (number)} failCB
-    */
+    /**
+     * 获取上传链接。一般用户大文件上传。
+     * @param {string} fileName
+     * @param {number} mediaType 媒体类型，可选值参考{@link MessageContentMediaType}
+     * @param {string} contentType HTTP请求的ContentType header，为空时默认为"application/octet-stream"
+     * @param {function (string, string)} successCB 回调通知上传成功之后的url
+     * @param {function (number)} failCB
+     */
     getUploadMediaUrl(fileName, mediaType, contentType, successCB, failCB) {
         impl.getUploadMediaUrl(fileName, mediaType, contentType, successCB, failCB);
     }
@@ -1964,7 +1969,6 @@ export class WfcManager {
         return impl.isGlobalDisableSyncDraft();
     }
 
-
     /**
      * 设置是否禁止草稿多端同步。
      * @param disable
@@ -1976,9 +1980,9 @@ export class WfcManager {
     }
 
     /**
-    * 是否禁止草稿同步。
-    * @returns {boolean} 是否草稿同步。
-    */
+     * 是否禁止草稿同步。
+     * @returns {boolean} 是否草稿同步。
+     */
     isDisableSyncDraft() {
         return impl.isDisableSyncDraft();
     }
@@ -2075,8 +2079,8 @@ export class WfcManager {
 
 
     /**
-    * 获取加密后的clientId
-    */
+     * 获取加密后的clientId
+     */
     getEncodedClientId() {
         return impl.getEncodedClientId();
     }
@@ -2112,23 +2116,23 @@ export class WfcManager {
     }
 
     /**
-    * 发送会议相关请求
-    * @param sessionId
-    * @param roomId
-    * @param request
-    * @param data
-    * @param advance
-    * @param callback
-    */
+     * 发送会议相关请求
+     * @param sessionId
+     * @param roomId
+     * @param request
+     * @param data
+     * @param advance
+     * @param callback
+     */
     sendConferenceRequestEx(sessionId, roomId, request, data, advance, callback) {
         impl.sendConferenceRequest(sessionId, roomId, request, data, advance, callback);
     }
 
     /**
-    * 是否开启在线状态
-    * @returns {boolean}
-    */
-    isUserOnlineStateEnabled(){
+     * 是否开启在线状态
+     * @returns {boolean}
+     */
+    isUserOnlineStateEnabled() {
         return impl.isUserOnlineStateEnabled();
     }
 
@@ -2140,7 +2144,7 @@ export class WfcManager {
      * @param {function(UserOnlineState[])} successCB
      * @param {function(number)} failCB
      */
-    watchOnlineState(type, targets, duration, successCB, failCB){
+    watchOnlineState(type, targets, duration, successCB, failCB) {
         impl.watchOnlineState(type, targets, duration, successCB, failCB);
     }
 
@@ -2151,29 +2155,29 @@ export class WfcManager {
      * @param {function(UserOnlineState[])} successCB
      * @param {function(number)} failCB
      */
-    unwatchOnlineState(type, targets, successCB, failCB){
+    unwatchOnlineState(type, targets, successCB, failCB) {
         impl.unwatchOnlineState(type, targets, successCB, failCB);
     }
 
     /**
-    * 设置当前用户的自定义状态。
-    * @param {number} customState 自定义状态值
-    * @param {String} customText 只定义状态文本
-    * @param {function()} successCB
-    * @param {function(number)} failCB
-    */
-    setMyCustomState(customState, customText, successCB, failCB){
+     * 设置当前用户的自定义状态。
+     * @param {number} customState 自定义状态值
+     * @param {String} customText 只定义状态文本
+     * @param {function()} successCB
+     * @param {function(number)} failCB
+     */
+    setMyCustomState(customState, customText, successCB, failCB) {
         impl.setMyCustomState(customState, customText, successCB, failCB)
     }
 
     /**
-    * 获取AuthCode。请参考 https://gitee.com/wfchat/open-platform
-    * @param {String} appId 应用ID
-    * @param {number} appType 应用类型
-    * @param {String} host 应用host
-    * @param {function(String)} successCB
-    * @param {function(number)} failCB
-    */
+     * 获取AuthCode。请参考 https://gitee.com/wfchat/open-platform
+     * @param {String} appId 应用ID
+     * @param {number} appType 应用类型
+     * @param {String} host 应用host
+     * @param {function(String)} successCB
+     * @param {function(number)} failCB
+     */
     getAuthCode(appId, appType, host, successCB, failCB) {
         impl.getAuthCode(appId, appType, host, successCB, failCB);
     }
@@ -2183,11 +2187,11 @@ export class WfcManager {
     }
 
     /**
-    * 释放应用全局锁
-    * @param {String} lockId 锁的ID
-    * @param {function()} successCB
-    * @param {function(number)} failCB
-    */
+     * 释放应用全局锁
+     * @param {String} lockId 锁的ID
+     * @param {function()} successCB
+     * @param {function(number)} failCB
+     */
     releaseLock(lockId, successCB, failCB) {
         impl.releaseLock(lockId, successCB, failCB);
     }
@@ -2218,7 +2222,6 @@ export class WfcManager {
     loadRemoteDomains(successCB, failCB) {
         impl.loadRemoteDomains(successCB, failCB);
     }
-
 
     /**
      * 从服务端重新拉取 IM 域信息
@@ -2267,19 +2270,22 @@ export class WfcManager {
         return Buffer.from(data).toString('base64');
     }
 
-    unescape (str) {
+    unescape(str) {
         return (str + '==='.slice((str.length + 3) % 4))
             .replace(/-/g, '+')
             .replace(/_/g, '/')
     }
 
-    escape (str) {
+    escape(str) {
         return str.replace(/\+/g, '-')
             .replace(/\//g, '_')
             .replace(/=/g, '')
     }
 
     defaultUserPortrait(userInfo) {
+        if (!userInfo.updateDt) {
+            return Config.DEFAULT_PORTRAIT_URL
+        }
         return `${Config.APP_SERVER}/avatar?name=${encodeURIComponent(userInfo.displayName)}`
         // return `http://localhost:8888/avatar?name=${encodeURIComponent(userInfo.displayName)}`
     }
@@ -2293,7 +2299,7 @@ export class WfcManager {
             members: []
         }
         let pending = false;
-        members.forEach(m => {
+        for (const m of members) {
             if (m.portrait && !m.portrait.startsWith(`${Config.APP_SERVER}`)) {
                 req.members.push({
                     avatarUrl: m.portrait
@@ -2305,10 +2311,11 @@ export class WfcManager {
             }
             if (m instanceof NullUserInfo) {
                 pending = true;
+                break
             }
-        })
+        }
         if (members.length === 0 || pending) {
-            return null;
+            return Config.DEFAULT_GROUP_PORTRAIT_URL;
         }
 
         req = JSON.stringify(req, null, '');
@@ -2318,9 +2325,9 @@ export class WfcManager {
     }
 
     /**
-    * 双网场景下，是否连到了主网。
-    * @returns {boolean}
-    */
+     * 双网场景下，是否连到了主网。
+     * @returns {boolean}
+     */
     connectedToMainNetwork() {
         return impl.connectedToMainNetwork();
     }
