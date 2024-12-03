@@ -166,6 +166,7 @@ export class AvEngineKitProxy {
         let delta = wfc.getServerDeltaTime();
         if (now - (numberValue(msg.timestamp) - delta) >= 90 * 1000) {
             // 消息已失效，不做处理
+            console.log('ignore out date message', msg);
             return;
         }
         let content = msg.messageContent;
@@ -202,13 +203,15 @@ export class AvEngineKitProxy {
                 || content.type === MessageContentType.CONFERENCE_CONTENT_TYPE_CHANGE_MODE
                 || content.type === MessageContentType.CONFERENCE_CONTENT_TYPE_COMMAND
             ) {
-                console.log("receive voip message", msg.messageContent.type, msg.messageContent.callId, msg.messageUid.toString(), msg);
                 if (msg.direction === 0
                     && content.type !== MessageContentType.VOIP_CONTENT_TYPE_END
                     && content.type !== MessageContentType.VOIP_CONTENT_TYPE_ACCEPT
                     && content.type !== MessageContentType.VOIP_CONTENT_TYPE_ACCEPT) {
+                    console.log('ignore out voip message');
                     return;
                 }
+
+                console.log("receive voip message", msg.messageContent.type, msg.messageContent.callId, msg.messageUid.toString(), msg);
 
                 let participantUserInfos = [];
                 let selfUserInfo = wfc.getUserInfo(wfc.getUserId());
