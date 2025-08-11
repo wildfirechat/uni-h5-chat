@@ -37,6 +37,7 @@ export default class CustomMessageConfig {
 
     // 请勿修改下面的registerCustomMessages方法
     static registerCustomMessages() {
+        console.log('registerCustomMessages');
         CustomMessageConfig.CustomMessageContents.forEach(cmc => {
             wfc.registerMessageContent(cmc.name, cmc.flag, cmc.type, cmc.contentClazz)
         })
