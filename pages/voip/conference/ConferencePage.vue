@@ -277,13 +277,19 @@ export default {
             }
         },
         profile2UserInfo(profile) {
-            let userInfo = this.wfc.getUserInfo(profile.userId);
+            let userId = profile.userId;
+            let screenSharing = false;
+            if(profile.userId.startsWith('screen_sharing_')){
+                userId = profile.userId.substring('screen_sharing_'.length);
+                screenSharing = true;
+            }
+            let userInfo = this.wfc.getUserInfo(userId);
             userInfo._isAudience = profile.audience;
             userInfo._isHost = this.session.host === profile.userId;
             userInfo._isVideoMuted = profile.videoMuted;
             userInfo._isAudioMuted = profile.audioMuted;
             userInfo._volume = 0;
-            userInfo._isScreenSharing = !!profile.screenSharing;
+            userInfo._isScreenSharing = screenSharing;
             userInfo._stream = profile.stream;
             return userInfo;
         },
